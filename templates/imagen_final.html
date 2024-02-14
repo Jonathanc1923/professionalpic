@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Face Swap App - Resultado</title>
+    <title>Propicart - Resultado</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -78,7 +78,7 @@
     <h1>Resultado del Proceso</h1>
 
     {% if result_image %}
-    <h2>Imagen Resultante:</h2>
+    <h2>Imagen Final:</h2>
     <div class="result-image-container">
         <!-- Tamaño fijo del contenedor de la imagen resultante -->
         <div style="width: 300px; height: 300px; overflow: hidden; margin: 10px auto;">
@@ -86,7 +86,7 @@
         </div>
 
         <!-- Botón para descargar la imagen resultante original -->
-        <a class="download-button" href="{{ url_for('static', filename=result_image) }}" download="result_image_original.jpg">Descargar Imagen Original</a>
+        <a class="download-button" href="{{ url_for('static', filename=result_image) }}" download="result_image_original.jpg">Descargar Imagen HD</a>
 
         <!-- Nueva sección para el fotocalendario -->
         <h2>Fotocalendario:</h2>

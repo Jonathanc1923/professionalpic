@@ -1,4 +1,3 @@
-
 from flask import Flask, render_template, request, redirect, url_for, send_file
 import cv2
 import insightface
@@ -17,29 +16,10 @@ import string
 import secrets
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify, session
-import cv2
-import shutil
-from datetime import datetime
-import random
-import os
-from os.path import join
-from swapper import swapper
-import subprocess
-
-# Instalación y configuración de CodeFormer
-def install_codeformer():
-    subprocess.run(['git', 'clone', 'https://github.com/sczhou/CodeFormer.git'])
-    subprocess.run(['pip', 'install', '-r', 'CodeFormer/requirements.txt'])
-    subprocess.run(['python', 'CodeFormer/basicsr/setup.py', 'develop'])
-    subprocess.run(['python', 'CodeFormer/scripts/download_pretrained_models.py', 'facelib'])
-    subprocess.run(['python', 'CodeFormer/scripts/download_pretrained_models.py', 'CodeFormer'])
-
-# Instalar CodeFormer al iniciar la aplicación Flask
-install_codeformer()
-
-
-
+import replicate
+from dotenv import load_dotenv
+from pprint import pprint
+import requests
 
 
 app = Flask(__name__)
@@ -48,6 +28,11 @@ codigouser = None
 
 
 a = 1
+# Cargar variables de entorno desde el archivo .env
+load_dotenv()
+
+# Obtener el token de API desde las variables de entorno
+REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN")
 
 
 app.secret_key = secrets.token_hex(16)
@@ -276,6 +261,46 @@ def imagen_final():
         latest_file = filtered_files[-1]
         result_image_name = latest_file  # Solo el nombre del archivo
         result_image = os.path.join(static_dir, latest_file)
+        session["result_image"] = result_image
+    #FULLHDIAMGE##################################################################################################################
+        
+    # Verificar si el token está presente
+        if not REPLICATE_API_TOKEN:
+            raise ValueError("El token de API de Replicate no se encontró en el archivo .env")
+
+
+        input_image_path = result_image
+        with open(input_image_path, "rb") as file:
+            image_data = file.read()
+
+        # Subir la imagen a HostImage
+        api_key_hd = "6d207e02198a847aa98d0a2a901485a5"
+        upload_url = "https://freeimage.host/api/1/upload"
+        params = {
+            "key": api_key_hd,
+            "action": "upload",
+            "format": "json"
+        }
+        files_api = {"source": image_data}
+        response = requests.post(upload_url, params=params, files=files_api)
+        image_url = response.json()["image"]["url"]
+
+        # Llamar a Replicate con la URL de la imagen
+        output_hd = replicate.run(
+            "lucataco/real-esrgan:3febd19381dd7e1f52a3ed3260b5b0a5636353de45e37e7c1c3cd814b24077a3",
+            input={
+                "image": image_url,
+                "scale": 2,
+                "face_enhance": True
+            }
+        )
+
+        pprint(output_hd)
+
+        # Sobrescribir la imagen original con la nueva versión
+        with open(input_image_path, "wb") as original_file:
+            original_file.write(requests.get(output_hd).content)
+        
         return render_template('imagen_final.html', result_image=result_image_name)
     else:
         return " En 15 segundos Actualiza o recarga esta página sin cerrarla - ERROR: Los rostros no fueron cargados o no esperaste a que el sistema los cargue - Recuerda que antes de seleccionar un diseño debes cargar correctamente las caras de las personas tal como se indica en el video de inicio de la plataforma! Si no sigues los pasos detallados no obtendrás buenos resultados."
@@ -435,41 +460,6 @@ def comprar():
 
 
 
-import subprocess
-
-def process_with_codeformer(input_path):
-    try:
-        CODEFORMER_FIDELITY = 0.8
-        BACKGROUND_ENHANCE = True
-        FACE_UPSAMPLE = True
-
-        # Ruta de salida para la imagen procesada (mismo lugar que la original)
-        output_path = input_path.replace('user_upload', 'user_upload_processed')
-
-        command = [
-            'python', '/content/CodeFormer/inference_codeformer.py',
-            '-w', str(CODEFORMER_FIDELITY),
-            '--input_path', input_path,
-            '--output_path', output_path,
-            '--bg_upsampler', 'realesrgan'
-        ]
-
-        if FACE_UPSAMPLE:
-            command.append('--face_upsample')
-
-        if BACKGROUND_ENHANCE:
-            command.append('--bg_upsampler')
-
-        subprocess.run(command, check=True)
-
-        return output_path  # Devuelve la ruta de la imagen procesada (reemplazando la original)
-
-    except subprocess.CalledProcessError as e:
-        print(f"Error en el proceso CodeFormer: {str(e)}")
-        return None
-
-
-
 @app.route('/procesar', methods=['POST'])
 def procesar():
    
@@ -556,8 +546,6 @@ def procesar():
         cv2.imwrite(output_path, img)
         print("UNIQUE NAME ES", unique_name)
         print(session)
-        if 'unique_name' in img_persona_path:
-            img_persona = process_with_codeformer(img_persona)
     
 
     # Devuelve la última imagen generada como resultado
@@ -565,14 +553,14 @@ def procesar():
     print ("dasdasfavaa", unique_name)
     result_image = output_path
     session['unique_name'] = unique_name
-    session["result_image"] = result_image
+    
     shutil.rmtree(os.path.join('uploads', codigouser))
     print(f"Carpeta eliminada exitosamente.")
     print(session)
     codigouser = session['codigouser']
     # Obtener la ruta de la imagen del fotocalendario
     calendario_path = os.path.join('static', 'calendario.png')
-
+    
     # Crear una copia de la imagen resultante para no sobrescribir la original
     img_resultante = cv2.imread(result_image)
     img_resultante_copy = img_resultante.copy()
@@ -625,13 +613,3 @@ def procesar():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-
-
-
-
-
-
-
-
-
-
